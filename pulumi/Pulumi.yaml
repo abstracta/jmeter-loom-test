@@ -1,0 +1,92 @@
+name: jmeter-loom
+runtime: yaml
+description: Testing JMeter with OpenJDK Virtual Threads
+
+configuration:
+  sshKey:
+    type: String
+variables:
+  prefix: jmeter-loom
+  instanceType: t2.medium
+  ec2Ami:
+    Fn::Invoke:
+      Function: aws:ec2:getAmi
+      Arguments:
+        mostRecent: true
+        filters:
+          - name: name
+            values:
+              - amzn2-ami-hvm-*
+        owners:
+          - amazon
+resources:
+  keyPair:
+    type: aws:ec2:KeyPair
+    properties:
+      keyName: ${prefix}-ssh-key
+      publicKey: ${sshKey}
+      tags:
+        Name: ${prefix}-ssh-key
+  group:
+    type: aws:ec2:SecurityGroup
+    properties:
+      tags:
+        Name: ${prefix}-group
+      description: Enable HTTP & SSH access
+      ingress:
+        - protocol: tcp
+          fromPort: 22
+          toPort: 22
+          cidrBlocks:
+            - "0.0.0.0/0"
+        - protocol: tcp  
+          fromPort: 80  
+          toPort: 80  
+          cidrBlocks:  
+            - "0.0.0.0/0"
+      egress:
+        - fromPort: 0
+          toPort: 0
+          protocol: -1
+          cidrBlocks:
+            - 0.0.0.0/0
+          ipv6CidrBlocks:
+            - ::/0
+  jmeter:
+    type: aws:ec2:Instance
+    properties:
+      instanceType: ${instanceType}
+      ami: ${ec2Ami.id}
+      tags:
+        Name: ${prefix}-jmeter
+      keyName: ${keyPair.keyName}
+      vpcSecurityGroupIds:
+        - ${group.id}
+      userData: |
+        #!/bin/bash
+        set -ex
+        su ec2-user bash -c 'curl -s "https://get.sdkman.io" | bash && source "/home/ec2-user/.sdkman/bin/sdkman-init.sh" && sdk install java 19.ea.24-open'
+  nginx:  
+    type: aws:ec2:Instance  
+    properties:  
+      instanceType: ${instanceType}  
+      ami: ${ec2Ami.id}  
+      tags:  
+        Name: ${prefix}-server  
+      keyName: ${keyPair.keyName}  
+      vpcSecurityGroupIds:  
+        - ${group.id}  
+      userData: |
+        #!/bin/bash  
+        set -ex  
+        sudo yum update -y  
+        sudo amazon-linux-extras install -y docker  
+        sudo service docker start  
+        sudo systemctl enable docker  
+        sudo usermod -a -G docker ec2-user  
+        docker run -d --name nginx -p 80:80 nginx
+
+outputs:
+  jmeterPublicIp: ${jmeter.publicIp}
+  nginxPublicIp: ${nginx.publicIp}  
+  nginxPrivateIp: ${nginx.privateIp}
