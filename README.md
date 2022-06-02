@@ -2,7 +2,7 @@
 
 This project uses [JMeter DSL](https://abstracta.github.io/jmeter-java-dsl) to implement a new JMeter thread group using OpenJDK project Loom virtual threads and compare them to default JMeter thread group implementation.
 
-Check the post [here](TODO) for more details.
+Check the post [here](https://abstracta.us/blog/performance-testing/virtual-threads-jmeter-meets-project-loom/) for more details.
 
 ## Pre requisites
 
